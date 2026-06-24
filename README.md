@@ -152,20 +152,3 @@ aws cloudformation delete-stack --stack-name orders-table-prod --region us-east-
 # bootstrap buckets are RETAINed on stack delete; empty + delete them manually if desired
 aws cloudformation delete-stack --stack-name orders-sam-bootstrap --region us-east-1
 ```
-
----
-
-## Rubric coverage
-
-| Criteria | Points | Where |
-|----------|-------:|-------|
-| DynamoDB table defined in SAM template | 10 | `template.yaml` |
-| Correct billing mode (On-Demand) | 5 | `BillingMode: PAY_PER_REQUEST` |
-| Correct table storage class (non-Standard) | 5 | `TableClass: STANDARD_INFREQUENT_ACCESS` |
-| Primary key + 2 attributes + 2 GSIs | 20 | `OrderId` + `CustomerId`/`Status` + 2 GSIs |
-| SAM pipeline configured | 10 | `samconfig.toml` + `sam build`/`sam deploy` in CI |
-| GitHub Actions workflow functioning | 10 | `.github/workflows/*` |
-| Multi-environment deployment (dev + prod) | 10 | `Environment` param + two stacks |
-| CRUD via console | 10 | Step 7 + `scripts/crud-smoke-test.sh` |
-| **Extra:** per-environment artifact buckets | 10 | `Dev/ProdArtifactBucket` in bootstrap |
-| **Extra:** separate dev & prod pipelines | 10 | `deploy-dev.yml` + `deploy-prod.yml` |
