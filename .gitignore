@@ -1,0 +1,11 @@
+# SAM build artifacts
+.aws-sam/
+samconfig-local.toml
+
+# Python / packaging leftovers
+__pycache__/
+*.pyc
+
+# OS / editor
+.DS_Store
+*.swp

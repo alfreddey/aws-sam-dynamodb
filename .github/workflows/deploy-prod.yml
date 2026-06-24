@@ -1,0 +1,49 @@
+name: Deploy DynamoDB (prod)
+
+# Dedicated PROD pipeline: deploys only the prod stack (orders-table-prod) to
+# the production environment. Promotion is explicit — triggered by pushing a
+# release tag (v*) or by manual dispatch. The "production" GitHub Environment
+# can require a manual reviewer approval before this job runs.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  id-token: write   # required to request the GitHub OIDC token
+  contents: read
+
+jobs:
+  deploy-prod:
+    runs-on: ubuntu-latest
+    environment: production   # OIDC sub claim -> repo:<org>/<repo>:environment:production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up AWS SAM CLI
+        uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_PROD_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: SAM build
+        run: sam build
+
+      - name: SAM deploy (prod)
+        run: |
+          sam deploy \
+            --stack-name orders-table-prod \
+            --s3-bucket "${{ vars.AWS_PROD_ARTIFACT_BUCKET }}" \
+            --s3-prefix orders-table-prod \
+            --region "${{ vars.AWS_REGION }}" \
+            --parameter-overrides Environment=prod \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --capabilities CAPABILITY_IAM

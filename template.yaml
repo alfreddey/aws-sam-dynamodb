@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Orders DynamoDB table provisioned with AWS SAM.
+  On-Demand billing, Standard-Infrequent-Access table class,
+  a primary key, two non-key attributes, and two Global Secondary Indexes.
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues:
+      - dev
+      - prod
+    Description: Deployment environment. Used to suffix the table name (orders-dev / orders-prod).
+
+Resources:
+  OrdersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub orders-${Environment}
+
+      # Rubric: billing mode must be On-Demand.
+      BillingMode: PAY_PER_REQUEST
+
+      # Rubric: table must NOT use the default storage class.
+      # Default is STANDARD, so we explicitly use the infrequent-access class.
+      TableClass: STANDARD_INFREQUENT_ACCESS
+
+      # Only key attributes (primary key + GSI keys) are declared here.
+      # CustomerId and Status are the two named non-key attributes, each
+      # used as the partition key of a Global Secondary Index.
+      AttributeDefinitions:
+        - AttributeName: OrderId
+          AttributeType: S
+        - AttributeName: CustomerId
+          AttributeType: S
+        - AttributeName: Status
+          AttributeType: S
+
+      # Primary key (partition key only; sort key is optional per the brief).
+      KeySchema:
+        - AttributeName: OrderId
+          KeyType: HASH
+
+      # Two Global Secondary Indexes on non-primary attributes.
+      GlobalSecondaryIndexes:
+        - IndexName: CustomerId-index
+          KeySchema:
+            - AttributeName: CustomerId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: Status-index
+          KeySchema:
+            - AttributeName: Status
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+      Tags:
+        - Key: Project
+          Value: aws-sam-dynamodb
+        - Key: Environment
+          Value: !Ref Environment
+
+Outputs:
+  TableName:
+    Description: Name of the deployed DynamoDB table.
+    Value: !Ref OrdersTable
+  TableArn:
+    Description: ARN of the deployed DynamoDB table.
+    Value: !GetAtt OrdersTable.Arn

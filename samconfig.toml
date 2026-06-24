@@ -1,0 +1,33 @@
+# SAM deploy configuration with two named environments: dev and prod.
+#
+# These named configs are mainly for LOCAL deploys, e.g.:
+#   sam build && sam deploy --config-env dev
+#   sam build && sam deploy --config-env prod
+#
+# The GitHub Actions pipelines pass the same values explicitly (region,
+# stack name, artifact bucket, Environment override) so they do not depend
+# on account-specific values being committed to this file.
+#
+# Before using these locally, replace the s3_bucket placeholders with the
+# artifact bucket names produced by bootstrap/bootstrap.yaml.
+version = 0.1
+
+[dev.deploy.parameters]
+stack_name = "orders-table-dev"
+region = "us-east-1"
+s3_bucket = "REPLACE_WITH_DEV_ARTIFACT_BUCKET"
+s3_prefix = "orders-table-dev"
+parameter_overrides = "Environment=dev"
+confirm_changeset = false
+fail_on_empty_changeset = false
+resolve_s3 = false
+
+[prod.deploy.parameters]
+stack_name = "orders-table-prod"
+region = "us-east-1"
+s3_bucket = "REPLACE_WITH_PROD_ARTIFACT_BUCKET"
+s3_prefix = "orders-table-prod"
+parameter_overrides = "Environment=prod"
+confirm_changeset = false
+fail_on_empty_changeset = false
+resolve_s3 = false

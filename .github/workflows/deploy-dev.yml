@@ -1,0 +1,51 @@
+name: Deploy DynamoDB (dev)
+
+# Dedicated DEV pipeline: deploys only the dev stack (orders-table-dev) to
+# the development environment. Runs automatically on every push to main and
+# can also be triggered manually.
+on:
+  push:
+    branches: [main]
+    paths:
+      - template.yaml
+      - samconfig.toml
+      - .github/workflows/deploy-dev.yml
+  workflow_dispatch:
+
+permissions:
+  id-token: write   # required to request the GitHub OIDC token
+  contents: read
+
+jobs:
+  deploy-dev:
+    runs-on: ubuntu-latest
+    environment: development   # OIDC sub claim -> repo:<org>/<repo>:environment:development
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up AWS SAM CLI
+        uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEV_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: SAM build
+        run: sam build
+
+      - name: SAM deploy (dev)
+        run: |
+          sam deploy \
+            --stack-name orders-table-dev \
+            --s3-bucket "${{ vars.AWS_DEV_ARTIFACT_BUCKET }}" \
+            --s3-prefix orders-table-dev \
+            --region "${{ vars.AWS_REGION }}" \
+            --parameter-overrides Environment=dev \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --capabilities CAPABILITY_IAM

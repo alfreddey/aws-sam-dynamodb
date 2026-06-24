@@ -1,0 +1,246 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  One-time bootstrap for the aws-sam-dynamodb project. Provisions the
+  GitHub OIDC provider, one IAM deploy role per environment (dev/prod),
+  and one dedicated SAM artifact S3 bucket per environment. Deploy this
+  ONCE per AWS account before the GitHub Actions pipelines can run.
+
+Parameters:
+  GitHubOrg:
+    Type: String
+    Description: GitHub org or username that owns the repo (e.g. alfreddey).
+  RepoName:
+    Type: String
+    Description: GitHub repository name (e.g. aws-sam-dynamodb).
+  DevEnvironmentName:
+    Type: String
+    Default: development
+    Description: GitHub Environment name used by the dev pipeline.
+  ProdEnvironmentName:
+    Type: String
+    Default: production
+    Description: GitHub Environment name used by the prod pipeline.
+  CreateOidcProvider:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description: >
+      Set to "false" if a GitHub Actions OIDC provider
+      (token.actions.githubusercontent.com) already exists in this account.
+
+Conditions:
+  ShouldCreateOidcProvider: !Equals [!Ref CreateOidcProvider, "true"]
+
+Resources:
+  # ----- GitHub Actions OIDC provider (account-wide, create once) -----
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Condition: ShouldCreateOidcProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+      ThumbprintList:
+        # GitHub's OIDC thumbprint. AWS now validates the cert chain at
+        # runtime, so this value is effectively a placeholder, but the API
+        # still requires one.
+        - 6938fd4d98bab03faadb97b34396831e3780aea1
+
+  # ----- Dedicated SAM artifact buckets, one per environment -----
+  DevArtifactBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub orders-sam-artifacts-dev-${AWS::AccountId}-${AWS::Region}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        - Key: Project
+          Value: aws-sam-dynamodb
+        - Key: Environment
+          Value: dev
+
+  ProdArtifactBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub orders-sam-artifacts-prod-${AWS::AccountId}-${AWS::Region}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        - Key: Project
+          Value: aws-sam-dynamodb
+        - Key: Environment
+          Value: prod
+
+  # ----- IAM deploy role for the DEV pipeline -----
+  # Trust is scoped to the "development" GitHub Environment of this repo only.
+  DevDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: orders-sam-deploy-dev
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If
+                - ShouldCreateOidcProvider
+                - !Ref GitHubOidcProvider
+                - !Sub arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubOrg}/${RepoName}:environment:${DevEnvironmentName}
+      Policies:
+        - PolicyName: orders-sam-deploy-dev-policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: CloudFormation
+                Effect: Allow
+                Action:
+                  - cloudformation:CreateStack
+                  - cloudformation:UpdateStack
+                  - cloudformation:DeleteStack
+                  - cloudformation:DescribeStacks
+                  - cloudformation:DescribeStackEvents
+                  - cloudformation:DescribeStackResources
+                  - cloudformation:GetTemplate
+                  - cloudformation:GetTemplateSummary
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:ExecuteChangeSet
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:ListStacks
+                  - cloudformation:ValidateTemplate
+                Resource: "*"
+              - Sid: ArtifactBucket
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket
+                  - s3:GetBucketLocation
+                Resource:
+                  - !GetAtt DevArtifactBucket.Arn
+                  - !Sub ${DevArtifactBucket.Arn}/*
+              - Sid: DynamoDb
+                Effect: Allow
+                Action:
+                  - dynamodb:CreateTable
+                  - dynamodb:UpdateTable
+                  - dynamodb:DeleteTable
+                  - dynamodb:DescribeTable
+                  - dynamodb:DescribeContinuousBackups
+                  - dynamodb:DescribeTimeToLive
+                  - dynamodb:UpdateContinuousBackups
+                  - dynamodb:ListTables
+                  - dynamodb:TagResource
+                  - dynamodb:UntagResource
+                  - dynamodb:ListTagsOfResource
+                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/orders-dev
+
+  # ----- IAM deploy role for the PROD pipeline -----
+  # Trust is scoped to the "production" GitHub Environment of this repo only.
+  ProdDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: orders-sam-deploy-prod
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If
+                - ShouldCreateOidcProvider
+                - !Ref GitHubOidcProvider
+                - !Sub arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubOrg}/${RepoName}:environment:${ProdEnvironmentName}
+      Policies:
+        - PolicyName: orders-sam-deploy-prod-policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: CloudFormation
+                Effect: Allow
+                Action:
+                  - cloudformation:CreateStack
+                  - cloudformation:UpdateStack
+                  - cloudformation:DeleteStack
+                  - cloudformation:DescribeStacks
+                  - cloudformation:DescribeStackEvents
+                  - cloudformation:DescribeStackResources
+                  - cloudformation:GetTemplate
+                  - cloudformation:GetTemplateSummary
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:ExecuteChangeSet
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:ListStacks
+                  - cloudformation:ValidateTemplate
+                Resource: "*"
+              - Sid: ArtifactBucket
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket
+                  - s3:GetBucketLocation
+                Resource:
+                  - !GetAtt ProdArtifactBucket.Arn
+                  - !Sub ${ProdArtifactBucket.Arn}/*
+              - Sid: DynamoDb
+                Effect: Allow
+                Action:
+                  - dynamodb:CreateTable
+                  - dynamodb:UpdateTable
+                  - dynamodb:DeleteTable
+                  - dynamodb:DescribeTable
+                  - dynamodb:DescribeContinuousBackups
+                  - dynamodb:DescribeTimeToLive
+                  - dynamodb:UpdateContinuousBackups
+                  - dynamodb:ListTables
+                  - dynamodb:TagResource
+                  - dynamodb:UntagResource
+                  - dynamodb:ListTagsOfResource
+                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/orders-prod
+
+Outputs:
+  DevArtifactBucketName:
+    Description: Set this as the GitHub repo variable AWS_DEV_ARTIFACT_BUCKET.
+    Value: !Ref DevArtifactBucket
+  ProdArtifactBucketName:
+    Description: Set this as the GitHub repo variable AWS_PROD_ARTIFACT_BUCKET.
+    Value: !Ref ProdArtifactBucket
+  DevDeployRoleArn:
+    Description: Set this as the GitHub repo variable AWS_DEV_ROLE_ARN.
+    Value: !GetAtt DevDeployRole.Arn
+  ProdDeployRoleArn:
+    Description: Set this as the GitHub repo variable AWS_PROD_ROLE_ARN.
+    Value: !GetAtt ProdDeployRole.Arn
