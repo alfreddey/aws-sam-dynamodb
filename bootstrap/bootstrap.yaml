@@ -32,7 +32,6 @@ Conditions:
   ShouldCreateOidcProvider: !Equals [!Ref CreateOidcProvider, "true"]
 
 Resources:
-  # ----- GitHub Actions OIDC provider (account-wide, create once) -----
   GitHubOidcProvider:
     Type: AWS::IAM::OIDCProvider
     Condition: ShouldCreateOidcProvider
@@ -41,12 +40,8 @@ Resources:
       ClientIdList:
         - sts.amazonaws.com
       ThumbprintList:
-        # GitHub's OIDC thumbprint. AWS now validates the cert chain at
-        # runtime, so this value is effectively a placeholder, but the API
-        # still requires one.
         - 6938fd4d98bab03faadb97b34396831e3780aea1
 
-  # ----- Dedicated SAM artifact buckets, one per environment -----
   DevArtifactBucket:
     Type: AWS::S3::Bucket
     DeletionPolicy: Retain
@@ -93,8 +88,6 @@ Resources:
         - Key: Environment
           Value: prod
 
-  # ----- IAM deploy role for the DEV pipeline -----
-  # Trust is scoped to the "development" GitHub Environment of this repo only.
   DevDeployRole:
     Type: AWS::IAM::Role
     Properties:
@@ -162,8 +155,6 @@ Resources:
                   - dynamodb:ListTagsOfResource
                 Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/orders-dev
 
-  # ----- IAM deploy role for the PROD pipeline -----
-  # Trust is scoped to the "production" GitHub Environment of this repo only.
   ProdDeployRole:
     Type: AWS::IAM::Role
     Properties:

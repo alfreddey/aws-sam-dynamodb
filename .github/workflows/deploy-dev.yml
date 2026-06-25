@@ -1,8 +1,5 @@
 name: Deploy DynamoDB (dev)
 
-# Dedicated DEV pipeline: deploys only the dev stack (orders-table-dev) to
-# the development environment. Runs automatically on every push to main and
-# can also be triggered manually.
 on:
   push:
     branches: [main]
@@ -13,13 +10,13 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write   # required to request the GitHub OIDC token
+  id-token: write
   contents: read
 
 jobs:
   deploy-dev:
     runs-on: ubuntu-latest
-    environment: development   # OIDC sub claim -> repo:<org>/<repo>:environment:development
+    environment: development
     steps:
       - name: Checkout
         uses: actions/checkout@v4

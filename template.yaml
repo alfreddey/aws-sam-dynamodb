@@ -18,17 +18,8 @@ Resources:
     Type: AWS::DynamoDB::Table
     Properties:
       TableName: !Sub orders-${Environment}
-
-      # Rubric: billing mode must be On-Demand.
       BillingMode: PAY_PER_REQUEST
-
-      # Rubric: table must NOT use the default storage class.
-      # Default is STANDARD, so we explicitly use the infrequent-access class.
       TableClass: STANDARD_INFREQUENT_ACCESS
-
-      # Only key attributes (primary key + GSI keys) are declared here.
-      # CustomerId and Status are the two named non-key attributes, each
-      # used as the partition key of a Global Secondary Index.
       AttributeDefinitions:
         - AttributeName: OrderId
           AttributeType: S
@@ -37,12 +28,10 @@ Resources:
         - AttributeName: Status
           AttributeType: S
 
-      # Primary key (partition key only; sort key is optional per the brief).
       KeySchema:
         - AttributeName: OrderId
           KeyType: HASH
 
-      # Two Global Secondary Indexes on non-primary attributes.
       GlobalSecondaryIndexes:
         - IndexName: CustomerId-index
           KeySchema:
