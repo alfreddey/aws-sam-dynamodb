@@ -13,7 +13,7 @@
 set -euo pipefail
 
 ENV="${1:-dev}"
-REGION="${AWS_REGION:-us-east-1}"
+REGION="${AWS_REGION:-eu-north-1}"
 TABLE="orders-${ENV}"
 
 echo ">> Table: ${TABLE}  (region ${REGION})"

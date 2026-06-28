@@ -1,9 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: >
-  One-time bootstrap for the aws-sam-dynamodb project. Provisions the
-  GitHub OIDC provider, one IAM deploy role per environment (dev/prod),
-  and one dedicated SAM artifact S3 bucket per environment. Deploy this
-  ONCE per AWS account before the GitHub Actions pipelines can run.
+Description: One-time bootstrap: OIDC provider, IAM deploy roles, and artifact S3 buckets
 
 Parameters:
   GitHubOrg:

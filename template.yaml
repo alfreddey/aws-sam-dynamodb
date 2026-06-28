@@ -1,9 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: >
-  Orders DynamoDB table provisioned with AWS SAM.
-  On-Demand billing, Standard-Infrequent-Access table class,
-  a primary key, two non-key attributes, and two Global Secondary Indexes.
+Description: DynamoDB orders table with two GSIs
 
 Parameters:
   Environment:

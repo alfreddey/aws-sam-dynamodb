@@ -26,7 +26,7 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.AWS_PROD_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_PROD_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: SAM build
@@ -36,7 +36,7 @@ jobs:
         run: |
           sam deploy \
             --stack-name orders-table-prod \
-            --s3-bucket "${{ vars.AWS_PROD_ARTIFACT_BUCKET }}" \
+            --s3-bucket "${{ secrets.AWS_PROD_ARTIFACT_BUCKET }}" \
             --s3-prefix orders-table-prod \
             --region "${{ vars.AWS_REGION }}" \
             --parameter-overrides Environment=prod \
