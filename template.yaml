@@ -24,6 +24,8 @@ Resources:
           AttributeType: S
         - AttributeName: Status
           AttributeType: S
+        - AttributeName: OrderName
+          AttributeType: S
 
       KeySchema:
         - AttributeName: OrderId

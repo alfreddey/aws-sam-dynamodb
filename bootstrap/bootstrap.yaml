@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: One-time bootstrap: OIDC provider, IAM deploy roles, and artifact S3 buckets
+Description: "One-time bootstrap OIDC provider, IAM deploy roles, and artifact S3 buckets"
 
 Parameters:
   GitHubOrg:
